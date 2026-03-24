@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Strategy Detail</title>
+    <title>전략 상세 보기</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,13 +18,13 @@
     <div class="page-shell">
       <header class="hero compact">
         <div class="hero-copy">
-          <p class="eyebrow">Strategy Detail</p>
-          <h1 id="strategy-title">Loading result...</h1>
-          <p id="strategy-subtitle" class="hero-text">Fetching summary, curve, annual returns, and trade log.</p>
+          <p class="eyebrow">전략 상세</p>
+          <h1 id="strategy-title">결과를 불러오는 중...</h1>
+          <p id="strategy-subtitle" class="hero-text">요약 지표, 자산곡선, 연도별 수익률, 매매 내역을 불러오고 있습니다.</p>
         </div>
         <nav class="top-nav">
-          <a class="nav-link" href="index.html">Results</a>
-          <a class="nav-link" href="compare.html">Compare</a>
+          <a class="nav-link" href="index.html">결과 목록</a>
+          <a class="nav-link" href="compare.html">비교</a>
         </nav>
       </header>
 
@@ -36,8 +36,8 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Chart</p>
-              <h2>Equity curve</h2>
+              <p class="section-label">차트</p>
+              <h2>자산곡선</h2>
             </div>
           </div>
           <div class="chart-card">
@@ -48,16 +48,16 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Yearly performance</p>
-              <h2>Annual returns</h2>
+              <p class="section-label">연도별 성과</p>
+              <h2>연도별 수익률</h2>
             </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Year</th>
-                  <th>Return</th>
+                  <th>연도</th>
+                  <th>수익률</th>
                 </tr>
               </thead>
               <tbody id="annual-returns-body"></tbody>
@@ -68,21 +68,21 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Transactions</p>
-              <h2>Trade log</h2>
+              <p class="section-label">거래 내역</p>
+              <h2>매매 내역</h2>
             </div>
           </div>
           <div class="table-wrap">
             <table class="data-table trade-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Asset</th>
-                  <th>Action</th>
-                  <th>Shares</th>
-                  <th>Price</th>
-                  <th>Amount</th>
-                  <th>Reason</th>
+                  <th>날짜</th>
+                  <th>자산</th>
+                  <th>구분</th>
+                  <th>수량</th>
+                  <th>가격</th>
+                  <th>금액</th>
+                  <th>사유</th>
                 </tr>
               </thead>
               <tbody id="trade-log-body"></tbody>

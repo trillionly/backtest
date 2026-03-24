@@ -1,6 +1,59 @@
 # backtest
 
-This repository is intended to manage ETF close-price data, run multiple backtests from shared source data, store strategy definitions and result snapshots separately, and later present those results through a web interface.
+이 저장소는 ETF 종가 CSV를 자동으로 갱신하고, 전략 파일과 백테스트 결과 파일을 분리해서 관리하며, 저장된 결과를 정적 웹 UI로 확인하기 위한 용도입니다.
+
+## 내가 이 저장소를 쓰는 흐름
+
+1. `update_prices.py` 또는 GitHub Actions로 `data/prices/` 종가 CSV를 최신 상태로 유지합니다.
+2. 새 전략 아이디어가 생기면 `data/strategies/` 아래에 전략 JSON 파일을 추가하거나 수정합니다.
+3. `scripts/run_backtest.py`로 하나 또는 여러 전략을 실행합니다.
+4. 결과 JSON은 `data/results/`에 저장되고 `results-index.json`도 함께 갱신됩니다.
+5. `web/` 페이지 또는 GitHub Pages에서 저장된 결과를 확인합니다.
+
+## 전략 파일 규칙
+
+- 위치: `data/strategies/*.json`
+- 권장 파일명: `{strategy_id}.json`
+- `strategy_id`는 결과 파일명에도 그대로 쓰이므로 짧고 일관되게 유지하는 편이 좋습니다.
+- 현재 전략 파일은 `id`, `name`, `description`, `assets`, `weights`, `start_date`, `end_date`, `initial_cash`, `monthly_contribution`, `rebalance.type`를 사용합니다.
+
+## 백테스트 실행
+
+단일 전략 실행:
+
+```powershell
+python scripts/run_backtest.py sample_qqq_tqqq_monthly.json
+```
+
+여러 전략 실행:
+
+```powershell
+python scripts/run_backtest.py sample_qqq_tqqq_monthly.json another_strategy.json
+```
+
+모든 전략 실행:
+
+```powershell
+python scripts/run_backtest.py --all
+```
+
+결과 파일명 규칙:
+
+```text
+{strategy_id}_{start_date}_{end_date}.json
+```
+
+실행이 끝나면 `data/results/results-index.json`도 자동 갱신되어 웹 UI가 결과 목록을 바로 읽을 수 있습니다.
+
+## 한국어 웹 UI 구조
+
+- `web/index.html`: 저장된 결과 목록
+- `web/strategy.html`: 단일 전략 상세 화면
+- `web/compare.html`: 여러 결과 비교 화면
+- `web/app.js`: 결과 JSON과 `results-index.json` 로딩
+- `web/styles.css`: 공통 스타일
+
+사용자에게 보이는 메뉴, 버튼, 표 헤더, 요약 카드, 빈 상태 메시지는 모두 한국어로 표시되며, 내부 코드와 JSON 키는 유지했습니다.
 
 ## Phase 1: Price updates
 

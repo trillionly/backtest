@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Compare Backtests</title>
+    <title>백테스트 비교</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,13 +18,13 @@
     <div class="page-shell">
       <header class="hero compact">
         <div class="hero-copy">
-          <p class="eyebrow">Result Comparison</p>
-          <h1>Compare multiple saved backtests</h1>
-          <p class="hero-text">Select two or more result files to line up the summary metrics and equity curves.</p>
+          <p class="eyebrow">결과 비교</p>
+          <h1>여러 백테스트 결과를 나란히 비교합니다</h1>
+          <p class="hero-text">두 개 이상의 결과 파일을 선택하면 요약 지표와 자산곡선을 함께 볼 수 있습니다.</p>
         </div>
         <nav class="top-nav">
-          <a class="nav-link" href="index.html">Results</a>
-          <a class="nav-link active" href="compare.html">Compare</a>
+          <a class="nav-link" href="index.html">결과 목록</a>
+          <a class="nav-link active" href="compare.html">비교</a>
         </nav>
       </header>
 
@@ -32,8 +32,8 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Selection</p>
-              <h2>Choose result files</h2>
+              <p class="section-label">선택</p>
+              <h2>비교할 결과 파일 선택</h2>
             </div>
           </div>
           <div id="compare-state" class="empty-state hidden"></div>
@@ -43,8 +43,8 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Chart</p>
-              <h2>Combined equity curve</h2>
+              <p class="section-label">차트</p>
+              <h2>비교 자산곡선</h2>
             </div>
           </div>
           <div class="chart-card">
@@ -55,21 +55,21 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Summary</p>
-              <h2>Comparison table</h2>
+              <p class="section-label">요약</p>
+              <h2>비교 표</h2>
             </div>
           </div>
           <div class="table-wrap">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Strategy</th>
-                  <th>Strategy ID</th>
-                  <th>Final value</th>
-                  <th>Total return</th>
+                  <th>전략명</th>
+                  <th>전략 ID</th>
+                  <th>최종 평가금액</th>
+                  <th>총수익률</th>
                   <th>CAGR</th>
                   <th>MDD</th>
-                  <th>Period</th>
+                  <th>기간</th>
                 </tr>
               </thead>
               <tbody id="compare-summary-body"></tbody>

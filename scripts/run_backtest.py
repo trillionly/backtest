@@ -33,10 +33,16 @@ class Strategy:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run a simple ETF backtest from a strategy JSON file.")
+    parser = argparse.ArgumentParser(description="Run ETF backtests from one or more strategy JSON files.")
     parser.add_argument(
-        "strategy",
-        help="Strategy JSON filename in data/strategies/ or an explicit path to a strategy file.",
+        "strategies",
+        nargs="*",
+        help="Strategy JSON filenames in data/strategies/ or explicit paths to strategy files.",
+    )
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all strategy JSON files in data/strategies/.",
     )
     return parser.parse_args()
 
@@ -118,6 +124,33 @@ def load_strategy(strategy_arg: str) -> Strategy:
         monthly_contribution=float(data["monthly_contribution"]),
         rebalance_type=rebalance_type,
     )
+
+
+def resolve_strategy_paths(args: argparse.Namespace) -> List[Path]:
+    strategy_paths: List[Path] = []
+
+    if args.all:
+        strategy_paths.extend(sorted(STRATEGIES_DIR.glob("*.json")))
+
+    for strategy_arg in args.strategies:
+        strategy_path = Path(strategy_arg)
+        if not strategy_path.is_absolute():
+            strategy_path = STRATEGIES_DIR / strategy_arg
+        strategy_paths.append(strategy_path)
+
+    if not strategy_paths:
+        raise ValueError("Provide at least one strategy file or use --all.")
+
+    unique_paths: List[Path] = []
+    seen = set()
+    for path in strategy_paths:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique_paths.append(path)
+
+    return unique_paths
 
 
 def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date, float]:
@@ -433,18 +466,23 @@ def save_result(strategy: Strategy, result: Dict[str, object]) -> Path:
 
 def main() -> None:
     args = parse_args()
-    strategy = load_strategy(args.strategy)
-    result = run_backtest(strategy)
-    result_path = save_result(strategy, result)
-    index_path = write_results_index()
+    strategy_paths = resolve_strategy_paths(args)
 
-    print(f"Strategy: {strategy.id}")
-    print(f"Result file: {result_path}")
+    for strategy_path in strategy_paths:
+        strategy = load_strategy(str(strategy_path))
+        result = run_backtest(strategy)
+        result_path = save_result(strategy, result)
+
+        print(f"Strategy: {strategy.id}")
+        print(f"Result file: {result_path}")
+        print(f"Final value: {result['summary']['final_value']}")
+        print(f"Total return: {result['summary']['total_return']}")
+        print(f"CAGR: {result['summary']['cagr']}")
+        print(f"MDD: {result['summary']['mdd']}")
+        print("")
+
+    index_path = write_results_index()
     print(f"Results index: {index_path}")
-    print(f"Final value: {result['summary']['final_value']}")
-    print(f"Total return: {result['summary']['total_return']}")
-    print(f"CAGR: {result['summary']['cagr']}")
-    print(f"MDD: {result['summary']['mdd']}")
 
 
 if __name__ == "__main__":
