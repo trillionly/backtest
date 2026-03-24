@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Compare Backtests</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body data-page="compare">
+    <div class="page-shell">
+      <header class="hero compact">
+        <div class="hero-copy">
+          <p class="eyebrow">Result Comparison</p>
+          <h1>Compare multiple saved backtests</h1>
+          <p class="hero-text">Select two or more result files to line up the summary metrics and equity curves.</p>
+        </div>
+        <nav class="top-nav">
+          <a class="nav-link" href="index.html">Results</a>
+          <a class="nav-link active" href="compare.html">Compare</a>
+        </nav>
+      </header>
+
+      <main class="content-stack">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Selection</p>
+              <h2>Choose result files</h2>
+            </div>
+          </div>
+          <div id="compare-state" class="empty-state hidden"></div>
+          <div id="compare-selector" class="selection-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Chart</p>
+              <h2>Combined equity curve</h2>
+            </div>
+          </div>
+          <div class="chart-card">
+            <canvas id="compare-chart"></canvas>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Summary</p>
+              <h2>Comparison table</h2>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Strategy</th>
+                  <th>Strategy ID</th>
+                  <th>Final value</th>
+                  <th>Total return</th>
+                  <th>CAGR</th>
+                  <th>MDD</th>
+                  <th>Period</th>
+                </tr>
+              </thead>
+              <tbody id="compare-summary-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

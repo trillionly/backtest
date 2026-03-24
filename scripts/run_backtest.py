@@ -5,7 +5,7 @@ import csv
 import json
 import math
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -270,7 +270,6 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
 
     holdings = {asset: 0.0 for asset in strategy.assets}
     cash = strategy.initial_cash
-    net_contributions = strategy.initial_cash
     trade_log: List[Dict[str, object]] = []
     equity_curve: List[Dict[str, object]] = []
     daily_returns: List[Dict[str, object]] = []
@@ -288,7 +287,6 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         if index > 0 and strategy.monthly_contribution > 0 and month_key != last_contribution_month:
             cash += strategy.monthly_contribution
             net_flow += strategy.monthly_contribution
-            net_contributions += strategy.monthly_contribution
             cash = invest_by_weights(
                 holdings,
                 prices,
@@ -355,6 +353,17 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
 
     return {
         "strategy_id": strategy.id,
+        "strategy_name": strategy.name,
+        "description": strategy.description,
+        "assets": strategy.assets,
+        "weights": strategy.weights,
+        "period": {
+            "start_date": trading_dates[0].isoformat(),
+            "end_date": trading_dates[-1].isoformat(),
+        },
+        "rebalance": {
+            "type": strategy.rebalance_type,
+        },
         "summary": {
             "final_value": round_metric(equity_curve[-1]["value"]),
             "total_return": round_metric(total_return),
@@ -365,6 +374,51 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         "annual_returns": annual_returns,
         "trade_log": trade_log,
     }
+
+
+def build_results_index() -> Dict[str, object]:
+    results: List[Dict[str, object]] = []
+    for result_path in sorted(RESULTS_DIR.glob("*.json")):
+        if result_path.name == "results-index.json":
+            continue
+
+        with result_path.open("r", encoding="utf-8") as handle:
+            result = json.load(handle)
+
+        period = result.get("period") or {}
+        summary = result.get("summary") or {}
+        results.append(
+            {
+                "file": result_path.name,
+                "strategy_id": result.get("strategy_id", ""),
+                "strategy_name": result.get("strategy_name", result.get("strategy_id", "")),
+                "description": result.get("description", ""),
+                "period": {
+                    "start_date": period.get("start_date"),
+                    "end_date": period.get("end_date"),
+                },
+                "summary": {
+                    "final_value": summary.get("final_value"),
+                    "total_return": summary.get("total_return"),
+                    "cagr": summary.get("cagr"),
+                    "mdd": summary.get("mdd"),
+                },
+            }
+        )
+
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "results": results,
+    }
+
+
+def write_results_index() -> Path:
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    index_path = RESULTS_DIR / "results-index.json"
+    with index_path.open("w", encoding="utf-8") as handle:
+        json.dump(build_results_index(), handle, indent=2)
+        handle.write("\n")
+    return index_path
 
 
 def save_result(strategy: Strategy, result: Dict[str, object]) -> Path:
@@ -382,9 +436,11 @@ def main() -> None:
     strategy = load_strategy(args.strategy)
     result = run_backtest(strategy)
     result_path = save_result(strategy, result)
+    index_path = write_results_index()
 
     print(f"Strategy: {strategy.id}")
     print(f"Result file: {result_path}")
+    print(f"Results index: {index_path}")
     print(f"Final value: {result['summary']['final_value']}")
     print(f"Total return: {result['summary']['total_return']}")
     print(f"CAGR: {result['summary']['cagr']}")
