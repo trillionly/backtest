@@ -58,6 +58,10 @@ def parse_iso_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def is_trading_day(value: date) -> bool:
+    return value.weekday() < 5
+
+
 def round_metric(value: float) -> float:
     return round(value, 6)
 
@@ -197,6 +201,8 @@ def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date
         series: Dict[date, float] = {}
         for row in reader:
             row_date = parse_iso_date((row.get(date_column) or "").strip())
+            if not is_trading_day(row_date):
+                continue
             if row_date < start_date or row_date > end_date:
                 continue
 

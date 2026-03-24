@@ -30,6 +30,10 @@ def parse_iso_date(value: str) -> date:
     return datetime.strptime(value.strip(), "%Y-%m-%d").date()
 
 
+def is_trading_day(value: date) -> bool:
+    return value.weekday() < 5
+
+
 def format_close(value: float) -> str:
     return f"{value:.10f}".rstrip("0").rstrip(".")
 
@@ -54,6 +58,11 @@ def load_existing_rows(csv_path: Path) -> Tuple[List[Dict[str, str]], date | Non
                 continue
 
             normalized_date = parse_iso_date(raw_date).isoformat()
+            parsed_date = parse_iso_date(raw_date)
+            if not is_trading_day(parsed_date):
+                continue
+
+            normalized_date = parsed_date.isoformat()
             rows_by_date[normalized_date] = {
                 "Date": normalized_date,
                 "Close": raw_close,
@@ -99,6 +108,8 @@ def fetch_new_rows(ticker: str, last_existing_date: date | None) -> List[Dict[st
     new_rows: List[Dict[str, str]] = []
     for index, row in close_history.iterrows():
         row_date = index.date()
+        if not is_trading_day(row_date):
+            continue
         if last_existing_date is not None and row_date <= last_existing_date:
             continue
 
