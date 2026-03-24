@@ -55,6 +55,24 @@ python scripts/run_backtest.py --all
 
 사용자에게 보이는 메뉴, 버튼, 표 헤더, 요약 카드, 빈 상태 메시지는 모두 한국어로 표시되며, 내부 코드와 JSON 키는 유지했습니다.
 
+## Phase 6: 결과 탐색과 비교 사용성
+
+결과가 많이 쌓였을 때는 `web/index.html`에서 다음 기능을 사용할 수 있습니다.
+
+1. 검색: 전략명, 전략 ID, 설명, 태그 기준으로 빠르게 찾기
+2. 태그 필터: `장투`, `리밸런싱`, `그리드`, `레버리지`, `방어형`, `공격형`, `적립식`, `테스트중` 같은 태그로 좁혀 보기
+3. 정렬: 최근 추가순, 이름순, 총수익률순, CAGR순, MDD순
+4. 즐겨찾기: 브라우저 `localStorage`에 저장되는 개인 즐겨찾기 표시
+5. 비교 선택: 목록에서 여러 전략을 선택한 뒤 비교 페이지로 바로 이동
+
+실전 사용 흐름은 보통 아래처럼 됩니다.
+
+1. 전략 JSON을 추가하거나 수정합니다.
+2. `python scripts/run_backtest.py your_strategy.json` 또는 `python scripts/run_backtest.py --all` 을 실행합니다.
+3. 결과 JSON과 `results-index.json`이 갱신됩니다.
+4. `web/index.html`에서 검색, 태그, 정렬, 즐겨찾기로 결과를 정리해서 봅니다.
+5. 비교할 전략을 체크한 뒤 비교 페이지로 이동합니다.
+
 ## Phase 1: Price updates
 
 Phase 1 keeps the CSV files in `data/prices/` updated automatically without changing their filenames or locations.

@@ -23,6 +23,7 @@ class Strategy:
     id: str
     name: str
     description: str
+    tags: List[str]
     assets: List[str]
     weights: List[float]
     start_date: date
@@ -116,6 +117,7 @@ def load_strategy(strategy_arg: str) -> Strategy:
         id=str(data["id"]).strip(),
         name=str(data["name"]).strip(),
         description=str(data["description"]).strip(),
+        tags=[str(tag).strip() for tag in data.get("tags", []) if str(tag).strip()],
         assets=assets,
         weights=weights,
         start_date=start_date,
@@ -388,6 +390,7 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         "strategy_id": strategy.id,
         "strategy_name": strategy.name,
         "description": strategy.description,
+        "tags": strategy.tags,
         "assets": strategy.assets,
         "weights": strategy.weights,
         "period": {
@@ -403,6 +406,7 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
             "cagr": round_metric(cagr),
             "mdd": round_metric(max_drawdown),
         },
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "equity_curve": equity_curve,
         "annual_returns": annual_returns,
         "trade_log": trade_log,
@@ -426,6 +430,8 @@ def build_results_index() -> Dict[str, object]:
                 "strategy_id": result.get("strategy_id", ""),
                 "strategy_name": result.get("strategy_name", result.get("strategy_id", "")),
                 "description": result.get("description", ""),
+                "tags": result.get("tags", []),
+                "created_at": result.get("created_at", datetime.fromtimestamp(result_path.stat().st_mtime, tz=timezone.utc).isoformat()),
                 "period": {
                     "start_date": period.get("start_date"),
                     "end_date": period.get("end_date"),

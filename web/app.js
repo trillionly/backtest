@@ -1,5 +1,6 @@
 const RESULTS_INDEX_PATH = "../data/results/results-index.json";
 const RESULTS_BASE_PATH = "../data/results";
+const FAVORITES_KEY = "backtest-favorites";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -14,6 +15,21 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
 });
 
 const chartInstances = [];
+let allResults = [];
+let selectedCompareFiles = new Set();
+let activeTag = "";
+
+function loadFavorites() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]"));
+  } catch (error) {
+    return new Set();
+  }
+}
+
+function saveFavorites(favorites) {
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(Array.from(favorites)));
+}
 
 function formatCurrency(value) {
   return value == null ? "-" : currencyFormatter.format(Number(value));
@@ -120,12 +136,16 @@ function buildLineChart(canvasId, datasets) {
 }
 
 function cardMarkup(result) {
+  const tags = Array.isArray(result.tags) ? result.tags : [];
   return `
     <article class="result-card">
       <div>
         <p class="section-label">저장된 결과</p>
         <h3 class="strategy-name">${escapeHtml(result.strategy_name || result.strategy_id || result.file)}</h3>
         <p class="strategy-id">${escapeHtml(result.strategy_id || "-")}</p>
+      </div>
+      <div class="tag-row">
+        ${tags.map((tag) => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join("")}
       </div>
       <div class="metric-pair-grid">
         <div class="metric-chip">
@@ -147,7 +167,13 @@ function cardMarkup(result) {
       </div>
       <div class="card-footer">
         <p class="period-text">${escapeHtml(formatPeriod(result.period))}</p>
-        <div>
+        <div class="card-actions">
+          <button class="favorite-button ${result.isFavorite ? "active" : ""}" type="button" data-favorite-file="${escapeHtml(result.file)}">
+            ${result.isFavorite ? "즐겨찾기 해제" : "즐겨찾기"}
+          </button>
+          <button class="select-button ${result.isSelected ? "active" : ""}" type="button" data-select-file="${escapeHtml(result.file)}">
+            ${result.isSelected ? "선택됨" : "비교 선택"}
+          </button>
           <a class="button-link secondary" href="compare.html?files=${encodeURIComponent(result.file)}">비교하기</a>
           <a class="button-link" href="strategy.html?file=${encodeURIComponent(result.file)}">상세 보기</a>
         </div>
@@ -156,17 +182,180 @@ function cardMarkup(result) {
   `;
 }
 
+function normalizeText(value) {
+  return String(value ?? "").toLowerCase();
+}
+
+function compareNumberDescending(left, right) {
+  return (Number(right) || 0) - (Number(left) || 0);
+}
+
+function sortResults(results, sortKey) {
+  const sorted = [...results];
+  if (sortKey === "name_asc") {
+    sorted.sort((left, right) => String(left.strategy_name || left.strategy_id).localeCompare(String(right.strategy_name || right.strategy_id), "ko"));
+  } else if (sortKey === "total_return_desc") {
+    sorted.sort((left, right) => compareNumberDescending(left.summary?.total_return, right.summary?.total_return));
+  } else if (sortKey === "cagr_desc") {
+    sorted.sort((left, right) => compareNumberDescending(left.summary?.cagr, right.summary?.cagr));
+  } else if (sortKey === "mdd_desc") {
+    sorted.sort((left, right) => compareNumberDescending(left.summary?.mdd, right.summary?.mdd));
+  } else {
+    sorted.sort((left, right) => String(right.created_at || "").localeCompare(String(left.created_at || "")));
+  }
+  return sorted;
+}
+
+function filterResults(results) {
+  const searchInput = document.getElementById("search-input");
+  const favoritesOnly = document.getElementById("favorites-only");
+  const sortSelect = document.getElementById("sort-select");
+  const favorites = loadFavorites();
+  const query = normalizeText(searchInput?.value || "");
+
+  const filtered = results
+    .map((result) => ({
+      ...result,
+      isFavorite: favorites.has(result.file),
+      isSelected: selectedCompareFiles.has(result.file),
+    }))
+    .filter((result) => {
+      if (favoritesOnly?.checked && !result.isFavorite) {
+        return false;
+      }
+
+      if (activeTag) {
+        const tags = Array.isArray(result.tags) ? result.tags : [];
+        if (!tags.includes(activeTag)) {
+          return false;
+        }
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const haystack = [
+        result.strategy_name,
+        result.strategy_id,
+        result.description,
+        ...(Array.isArray(result.tags) ? result.tags : []),
+      ]
+        .map(normalizeText)
+        .join(" ");
+
+      return haystack.includes(query);
+    });
+
+  return sortResults(filtered, sortSelect?.value || "created_at_desc");
+}
+
+function renderTagFilters(results) {
+  const container = document.getElementById("tag-filters");
+  if (!container) {
+    return;
+  }
+
+  const tags = Array.from(
+    new Set(results.flatMap((result) => (Array.isArray(result.tags) ? result.tags : [])))
+  ).sort((left, right) => left.localeCompare(right, "ko"));
+
+  container.innerHTML = [
+    `<button class="tag-filter-button ${activeTag === "" ? "active" : ""}" type="button" data-tag="">전체</button>`,
+    ...tags.map(
+      (tag) => `<button class="tag-filter-button ${activeTag === tag ? "active" : ""}" type="button" data-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`
+    ),
+  ].join("");
+
+  container.querySelectorAll("[data-tag]").forEach((button) => {
+    button.addEventListener("click", () => {
+      activeTag = button.dataset.tag || "";
+      renderIndexResults();
+    });
+  });
+}
+
+function bindIndexCardActions() {
+  document.querySelectorAll("[data-favorite-file]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const favorites = loadFavorites();
+      const file = button.dataset.favoriteFile;
+      if (!file) {
+        return;
+      }
+      if (favorites.has(file)) {
+        favorites.delete(file);
+      } else {
+        favorites.add(file);
+      }
+      saveFavorites(favorites);
+      renderIndexResults();
+    });
+  });
+
+  document.querySelectorAll("[data-select-file]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const file = button.dataset.selectFile;
+      if (!file) {
+        return;
+      }
+      if (selectedCompareFiles.has(file)) {
+        selectedCompareFiles.delete(file);
+      } else {
+        selectedCompareFiles.add(file);
+      }
+      renderIndexResults();
+    });
+  });
+}
+
+function updateCompareSelectedButton() {
+  const button = document.getElementById("compare-selected-button");
+  if (!button) {
+    return;
+  }
+  button.disabled = selectedCompareFiles.size < 2;
+}
+
+function renderIndexResults() {
+  const results = filterResults(allResults);
+  document.getElementById("result-count").textContent = `표시 중인 결과 ${results.length}개`;
+  if (results.length === 0) {
+    showState("index-state", "조건에 맞는 결과가 없습니다. 검색어, 태그, 즐겨찾기, 정렬 조건을 다시 확인하세요.");
+    document.getElementById("index-grid").innerHTML = "";
+    updateCompareSelectedButton();
+    return;
+  }
+
+  hideState("index-state");
+  document.getElementById("index-grid").innerHTML = results.map(cardMarkup).join("");
+  bindIndexCardActions();
+  updateCompareSelectedButton();
+}
+
 async function renderIndexPage() {
   try {
-    const results = await loadResultsIndex();
-    document.getElementById("result-count").textContent = `저장된 결과 ${results.length}개`;
-    if (results.length === 0) {
+    allResults = await loadResultsIndex();
+    renderTagFilters(allResults);
+
+    if (allResults.length === 0) {
+      document.getElementById("result-count").textContent = "저장된 결과 0개";
       showState("index-state", "저장된 백테스트 결과가 아직 없습니다. `scripts/run_backtest.py`를 실행해 결과 JSON을 생성하세요.");
       return;
     }
 
-    hideState("index-state");
-    document.getElementById("index-grid").innerHTML = results.map(cardMarkup).join("");
+    document.getElementById("search-input").addEventListener("input", renderIndexResults);
+    document.getElementById("favorites-only").addEventListener("change", renderIndexResults);
+    document.getElementById("sort-select").addEventListener("change", renderIndexResults);
+    document.getElementById("compare-selected-button").addEventListener("click", () => {
+      if (selectedCompareFiles.size < 2) {
+        return;
+      }
+      const files = Array.from(selectedCompareFiles).join(",");
+      window.location.href = `compare.html?files=${encodeURIComponent(files)}`;
+    });
+
+    renderIndexResults();
   } catch (error) {
     document.getElementById("result-count").textContent = "불러오기 실패";
     showState("index-state", "결과 인덱스를 불러오지 못했습니다. 로컬 정적 서버나 GitHub Pages에서 사이트를 열어 JSON 파일을 가져오세요.");

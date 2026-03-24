@@ -39,6 +39,32 @@
             </div>
             <p id="result-count" class="panel-meta">결과를 불러오는 중...</p>
           </div>
+          <div class="control-stack">
+            <div class="search-row">
+              <label class="search-box" for="search-input">
+                <span class="search-label">검색</span>
+                <input id="search-input" type="search" placeholder="전략명, ID, 설명, 태그 검색" />
+              </label>
+              <label class="favorite-toggle" for="favorites-only">
+                <input id="favorites-only" type="checkbox" />
+                <span>즐겨찾기만 보기</span>
+              </label>
+            </div>
+            <div class="toolbar-row">
+              <div class="sort-box">
+                <label for="sort-select">정렬</label>
+                <select id="sort-select">
+                  <option value="created_at_desc">최근 추가순</option>
+                  <option value="name_asc">이름순</option>
+                  <option value="total_return_desc">총수익률순</option>
+                  <option value="cagr_desc">CAGR순</option>
+                  <option value="mdd_desc">MDD순</option>
+                </select>
+              </div>
+              <div id="tag-filters" class="tag-filter-row"></div>
+              <button id="compare-selected-button" class="button-link" type="button" disabled>선택한 전략 비교</button>
+            </div>
+          </div>
           <div id="index-state" class="empty-state hidden"></div>
           <div id="index-grid" class="result-grid"></div>
         </section>

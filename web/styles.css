@@ -110,6 +110,101 @@ a {
   margin-top: 22px;
 }
 
+.control-stack {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.search-row,
+.toolbar-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-box,
+.sort-box,
+.favorite-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.search-box {
+  flex: 1 1 320px;
+  justify-content: space-between;
+}
+
+.search-box input,
+.sort-box select {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.search-box input {
+  width: 100%;
+}
+
+.search-label,
+.sort-box label {
+  color: var(--brand-strong);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.favorite-toggle input {
+  accent-color: var(--brand);
+}
+
+.tag-filter-row,
+.tag-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag-pill,
+.tag-filter-button,
+.favorite-button,
+.select-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.tag-pill {
+  background: rgba(31, 107, 87, 0.08);
+  color: var(--brand-strong);
+}
+
+.tag-filter-button.active,
+.favorite-button.active,
+.select-button.active {
+  background: var(--brand);
+  border-color: transparent;
+  color: #fff;
+}
+
 .panel {
   padding: 24px;
   border: 1px solid var(--border);
@@ -207,6 +302,12 @@ a {
   justify-content: space-between;
   align-items: center;
   gap: 12px;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .button-link {
@@ -346,6 +447,10 @@ a {
   .card-footer {
     flex-direction: column;
     align-items: start;
+  }
+
+  .toolbar-row {
+    align-items: stretch;
   }
 
   .page-shell {
