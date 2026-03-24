@@ -1,0 +1,14 @@
+{
+  "id": "sample_qqq_tqqq_monthly",
+  "name": "Sample QQQ TQQQ Monthly",
+  "description": "A simple two-asset sample strategy for phase 2 backtest testing.",
+  "assets": ["QQQ", "TQQQ"],
+  "weights": [0.6, 0.4],
+  "start_date": "2020-01-02",
+  "end_date": "2025-12-31",
+  "initial_cash": 10000,
+  "monthly_contribution": 500,
+  "rebalance": {
+    "type": "monthly"
+  }
+}

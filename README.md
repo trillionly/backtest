@@ -57,3 +57,47 @@ data/
 ```
 
 This allows price data to stay shared and stable while future phases add separate strategy definitions, separate backtest result files, and a web UI that lists, views, and compares results.
+
+## Phase 2: Backtest engine foundation
+
+Phase 2 adds a simple file-based backtest workflow:
+
+1. Strategy definitions live in `data/strategies/*.json`
+2. Price inputs are read from the existing `data/prices/*.csv`
+3. Backtest results are saved to `data/results/*.json`
+
+Each strategy JSON currently supports these fields:
+
+- `id`
+- `name`
+- `description`
+- `assets`
+- `weights`
+- `start_date`
+- `end_date`
+- `initial_cash`
+- `monthly_contribution`
+- `rebalance.type`
+
+Supported `rebalance.type` values in phase 2:
+
+- `none`
+- `monthly`
+
+The runner reads close prices only, does not use adjusted close, and does not add dividends or fees.
+
+## Running a backtest
+
+Run the sample strategy with:
+
+```powershell
+python scripts/run_backtest.py sample_qqq_tqqq_monthly.json
+```
+
+You can also pass an explicit path to a strategy file under `data/strategies/`.
+
+Result files are written to `data/results/` using this pattern:
+
+```text
+{strategy_id}_{start_date}_{end_date}.json
+```
