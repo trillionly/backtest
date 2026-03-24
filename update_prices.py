@@ -139,10 +139,14 @@ def update_price_file(csv_path: Path, ticker: str) -> None:
 
 
 def main() -> None:
-    for filename, ticker in PRICE_FILES.items():
-        csv_path = PRICES_DIR / filename
-        if not csv_path.exists():
-            raise FileNotFoundError(f"Missing expected file: {csv_path}")
+    csv_paths = sorted(PRICES_DIR.glob("*.csv"))
+    if not csv_paths:
+        raise FileNotFoundError(f"No CSV files found in {PRICES_DIR}")
+
+    for csv_path in csv_paths:
+        ticker = PRICE_FILES.get(csv_path.name.lower())
+        if ticker is None:
+            raise ValueError(f"No ticker mapping configured for {csv_path.name}")
         update_price_file(csv_path, ticker)
 
 
