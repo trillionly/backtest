@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import bisect
 import csv
 import json
 import math
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Dict, List
 
@@ -24,6 +25,7 @@ class Strategy:
     name: str
     description: str
     tags: List[str]
+    benchmark_asset: str
     assets: List[str]
     weights: List[float]
     start_date: date
@@ -118,6 +120,7 @@ def load_strategy(strategy_arg: str) -> Strategy:
         name=str(data["name"]).strip(),
         description=str(data["description"]).strip(),
         tags=[str(tag).strip() for tag in data.get("tags", []) if str(tag).strip()],
+        benchmark_asset=normalize_asset_name(data.get("benchmark_asset", assets[0])),
         assets=assets,
         weights=weights,
         start_date=start_date,
@@ -293,6 +296,202 @@ def compute_equity_value(holdings: Dict[str, float], prices: Dict[str, float], c
     return cash + sum(holdings[asset] * prices[asset] for asset in holdings)
 
 
+def compute_annualized_volatility(daily_returns: List[Dict[str, object]]) -> float:
+    returns = [float(entry["return"]) for entry in daily_returns[1:]]
+    if len(returns) < 2:
+        return 0.0
+
+    mean_return = sum(returns) / len(returns)
+    variance = sum((value - mean_return) ** 2 for value in returns) / (len(returns) - 1)
+    return math.sqrt(variance) * math.sqrt(252)
+
+
+def compute_drawdown_details(equity_curve: List[Dict[str, object]]) -> Dict[str, object]:
+    peak_value = float(equity_curve[0]["value"])
+    peak_date = equity_curve[0]["date"]
+    max_drawdown = 0.0
+    drawdown_start_date = peak_date
+    drawdown_trough_date = peak_date
+    recovery_date = None
+    active_peak_date = peak_date
+    active_drawdown_start = peak_date
+    current_drawdown_start = None
+    max_drawdown_peak_value = peak_value
+    max_drawdown_recovered = False
+
+    for entry in equity_curve:
+        value = float(entry["value"])
+        entry_date = str(entry["date"])
+
+        if value >= peak_value:
+            peak_value = value
+            active_peak_date = entry_date
+            if not max_drawdown_recovered and current_drawdown_start == drawdown_start_date and value >= max_drawdown_peak_value:
+                recovery_date = entry_date
+                max_drawdown_recovered = True
+            current_drawdown_start = None
+            continue
+
+        if current_drawdown_start is None:
+            current_drawdown_start = active_peak_date
+
+        drawdown = (value / peak_value) - 1.0
+        if drawdown < max_drawdown:
+            max_drawdown = drawdown
+            drawdown_start_date = current_drawdown_start
+            drawdown_trough_date = entry_date
+            max_drawdown_peak_value = peak_value
+            recovery_date = None
+            max_drawdown_recovered = False
+
+    recovery_days = None
+    if recovery_date is not None:
+        recovery_days = (parse_iso_date(recovery_date) - parse_iso_date(drawdown_start_date)).days
+
+    return {
+        "max_drawdown": round_metric(max_drawdown),
+        "start_date": drawdown_start_date,
+        "trough_date": drawdown_trough_date,
+        "recovery_date": recovery_date,
+        "recovery_days": recovery_days,
+    }
+
+
+def build_period_analysis(equity_curve: List[Dict[str, object]]) -> Dict[str, Dict[str, object]]:
+    analysis: Dict[str, Dict[str, object]] = {}
+    curve_dates = [parse_iso_date(str(entry["date"])) for entry in equity_curve]
+    curve_values = [float(entry["value"]) for entry in equity_curve]
+
+    periods = [
+        ("전체 기간", None),
+        ("최근 1년", 365),
+        ("최근 3년", 365 * 3),
+        ("최근 5년", 365 * 5),
+    ]
+
+    end_date = curve_dates[-1]
+    end_value = curve_values[-1]
+
+    for label, days in periods:
+        if days is None:
+            start_index = 0
+        else:
+            threshold = end_date - timedelta(days=days)
+            start_index = bisect.bisect_left(curve_dates, threshold)
+            if start_index >= len(curve_dates):
+                continue
+            if curve_dates[start_index] > threshold and start_index > 0:
+                start_index -= 1
+            if (end_date - curve_dates[start_index]).days < int(days * 0.8):
+                continue
+
+        start_date_value = curve_dates[start_index]
+        start_value = curve_values[start_index]
+        total_return = 0.0 if start_value <= 0 else (end_value / start_value) - 1.0
+        years = max((end_date - start_date_value).days / 365.25, 1 / 365.25)
+        cagr = (end_value / start_value) ** (1 / years) - 1.0 if start_value > 0 else 0.0
+        analysis[label] = {
+            "start_date": start_date_value.isoformat(),
+            "end_date": end_date.isoformat(),
+            "total_return": round_metric(total_return),
+            "cagr": round_metric(cagr),
+        }
+
+    return analysis
+
+
+def build_rolling_return_analysis(equity_curve: List[Dict[str, object]]) -> Dict[str, object]:
+    curve_dates = [parse_iso_date(str(entry["date"])) for entry in equity_curve]
+    curve_values = [float(entry["value"]) for entry in equity_curve]
+    rolling_entries: List[Dict[str, object]] = []
+
+    for index, current_date in enumerate(curve_dates):
+        threshold = current_date - timedelta(days=365)
+        base_index = bisect.bisect_right(curve_dates, threshold) - 1
+        if base_index < 0:
+            continue
+        if (current_date - curve_dates[base_index]).days < 300:
+            continue
+
+        base_value = curve_values[base_index]
+        current_value = curve_values[index]
+        rolling_return = 0.0 if base_value <= 0 else (current_value / base_value) - 1.0
+        rolling_entries.append(
+            {
+                "date": current_date.isoformat(),
+                "return": round_metric(rolling_return),
+            }
+        )
+
+    if not rolling_entries:
+        return {
+            "window": "1y",
+            "series": [],
+            "summary": None,
+        }
+
+    returns = [float(entry["return"]) for entry in rolling_entries]
+    return {
+        "window": "1y",
+        "series": rolling_entries,
+        "summary": {
+            "best": round_metric(max(returns)),
+            "worst": round_metric(min(returns)),
+            "average": round_metric(sum(returns) / len(returns)),
+        },
+    }
+
+
+def build_benchmark_result(
+    benchmark_asset: str,
+    start_date: date,
+    end_date: date,
+    initial_cash: float,
+    monthly_contribution: float,
+) -> Dict[str, object] | None:
+    benchmark_prices = load_price_series(benchmark_asset, start_date, end_date)
+    benchmark_dates = sorted(benchmark_prices)
+    if not benchmark_dates:
+        return None
+
+    shares = 0.0
+    cash = initial_cash
+    equity_curve: List[Dict[str, object]] = []
+    last_contribution_month = None
+
+    for index, trading_date in enumerate(benchmark_dates):
+        price = benchmark_prices[trading_date]
+        if index == 0 and cash > 0:
+            shares += cash / price
+            cash = 0.0
+
+        month_key = (trading_date.year, trading_date.month)
+        if index > 0 and monthly_contribution > 0 and month_key != last_contribution_month:
+            cash += monthly_contribution
+            shares += cash / price
+            cash = 0.0
+
+        value = shares * price + cash
+        equity_curve.append({"date": trading_date.isoformat(), "value": round_metric(value)})
+        last_contribution_month = month_key
+
+    start_value = float(equity_curve[0]["value"])
+    end_value = float(equity_curve[-1]["value"])
+    total_return = 0.0 if start_value <= 0 else (end_value / start_value) - 1.0
+    years = max((benchmark_dates[-1] - benchmark_dates[0]).days / 365.25, 1 / 365.25)
+    cagr = (end_value / start_value) ** (1 / years) - 1.0 if start_value > 0 else 0.0
+
+    return {
+        "asset": benchmark_asset,
+        "summary": {
+            "final_value": round_metric(end_value),
+            "total_return": round_metric(total_return),
+            "cagr": round_metric(cagr),
+        },
+        "equity_curve": equity_curve,
+    }
+
+
 def run_backtest(strategy: Strategy) -> Dict[str, object]:
     weights = dict(zip(strategy.assets, strategy.weights))
     price_data = {
@@ -386,6 +585,19 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         for year, factor in sorted(annual_return_factors.items())
     ]
 
+    annualized_volatility = compute_annualized_volatility(daily_returns)
+    drawdown_details = compute_drawdown_details(equity_curve)
+    period_analysis = build_period_analysis(equity_curve)
+    rolling_returns = build_rolling_return_analysis(equity_curve)
+    benchmark = build_benchmark_result(
+        strategy.benchmark_asset,
+        trading_dates[0],
+        trading_dates[-1],
+        strategy.initial_cash,
+        strategy.monthly_contribution,
+    )
+    calmar_like = 0.0 if abs(max_drawdown) <= 1e-12 else cagr / abs(max_drawdown)
+
     return {
         "strategy_id": strategy.id,
         "strategy_name": strategy.name,
@@ -400,6 +612,7 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         "rebalance": {
             "type": strategy.rebalance_type,
         },
+        "benchmark_asset": strategy.benchmark_asset,
         "summary": {
             "final_value": round_metric(equity_curve[-1]["value"]),
             "total_return": round_metric(total_return),
@@ -407,9 +620,28 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
             "mdd": round_metric(max_drawdown),
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "analysis": {
+            "periods": period_analysis,
+            "drawdown": drawdown_details,
+            "rolling_returns": rolling_returns,
+            "risk": {
+                "annualized_volatility": round_metric(annualized_volatility),
+                "return_to_drawdown": round_metric(calmar_like),
+            },
+            "benchmark": {
+                "asset": benchmark["asset"] if benchmark else None,
+                "summary": benchmark["summary"] if benchmark else None,
+                "outperformance": {
+                    "final_value": round_metric(equity_curve[-1]["value"] - benchmark["summary"]["final_value"]) if benchmark else None,
+                    "total_return": round_metric(total_return - benchmark["summary"]["total_return"]) if benchmark else None,
+                    "cagr": round_metric(cagr - benchmark["summary"]["cagr"]) if benchmark else None,
+                } if benchmark else None,
+            },
+        },
         "equity_curve": equity_curve,
         "annual_returns": annual_returns,
         "trade_log": trade_log,
+        "benchmark_curve": benchmark["equity_curve"] if benchmark else [],
     }
 
 

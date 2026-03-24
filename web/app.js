@@ -39,6 +39,10 @@ function formatPercent(value) {
   return value == null ? "-" : percentFormatter.format(Number(value));
 }
 
+function formatDate(value) {
+  return value || "-";
+}
+
 function formatPeriod(period) {
   if (!period || !period.start_date || !period.end_date) {
     return "기간 정보 없음";
@@ -372,6 +376,14 @@ function metricCard(label, value, tone = "") {
   `;
 }
 
+function renderMetricCards(containerId, metrics) {
+  const container = document.getElementById(containerId);
+  if (!container) {
+    return;
+  }
+  container.innerHTML = metrics.map(([label, value, tone]) => metricCard(label, value, tone || "")).join("");
+}
+
 async function renderStrategyPage() {
   const file = getQueryParam("file");
   if (!file) {
@@ -392,6 +404,62 @@ async function renderStrategyPage() {
       metricCard("CAGR", formatPercent(result.summary?.cagr), Number(result.summary?.cagr) < 0 ? "negative-text" : "positive-text"),
       metricCard("MDD", formatPercent(result.summary?.mdd), "negative-text"),
     ].join("");
+
+    const analysis = result.analysis || {};
+    const periodBody = document.getElementById("period-analysis-body");
+    const periods = analysis.periods || {};
+    const periodEntries = Object.entries(periods);
+    periodBody.innerHTML = periodEntries.length
+      ? periodEntries
+          .map(
+            ([label, entry]) => `
+              <tr>
+                <td>${escapeHtml(label)}</td>
+                <td>${escapeHtml(formatDate(entry.start_date))}</td>
+                <td>${escapeHtml(formatDate(entry.end_date))}</td>
+                <td class="${Number(entry.total_return) < 0 ? "negative-text" : "positive-text"}">${escapeHtml(formatPercent(entry.total_return))}</td>
+                <td class="${Number(entry.cagr) < 0 ? "negative-text" : "positive-text"}">${escapeHtml(formatPercent(entry.cagr))}</td>
+              </tr>
+            `
+          )
+          .join("")
+      : '<tr><td colspan="5">표시할 기간 분석 데이터가 없습니다.</td></tr>';
+
+    const drawdown = analysis.drawdown || {};
+    renderMetricCards("drawdown-metrics", [
+      ["최대 낙폭", formatPercent(drawdown.max_drawdown), "negative-text"],
+      ["낙폭 시작일", formatDate(drawdown.start_date)],
+      ["낙폭 저점일", formatDate(drawdown.trough_date)],
+      ["이전 고점 회복일", formatDate(drawdown.recovery_date)],
+      ["회복 기간", drawdown.recovery_days == null ? "미회복" : `${drawdown.recovery_days}일`],
+    ]);
+
+    const rollingSummary = analysis.rolling_returns?.summary;
+    renderMetricCards("rolling-summary-metrics", rollingSummary
+      ? [
+          ["최고", formatPercent(rollingSummary.best), Number(rollingSummary.best) < 0 ? "negative-text" : "positive-text"],
+          ["최저", formatPercent(rollingSummary.worst), "negative-text"],
+          ["평균", formatPercent(rollingSummary.average), Number(rollingSummary.average) < 0 ? "negative-text" : "positive-text"],
+        ]
+      : [["1년 롤링 수익률", "데이터 부족"]]);
+
+    const risk = analysis.risk || {};
+    renderMetricCards("risk-summary-metrics", [
+      ["연환산 변동성", formatPercent(risk.annualized_volatility)],
+      ["수익/낙폭 비율", risk.return_to_drawdown == null ? "-" : String(Number(risk.return_to_drawdown).toFixed(2))],
+    ]);
+
+    const benchmark = analysis.benchmark || {};
+    const benchmarkSummary = benchmark.summary || {};
+    const outperformance = benchmark.outperformance || {};
+    renderMetricCards("benchmark-summary-metrics", benchmark.asset
+      ? [
+          ["벤치마크", benchmark.asset],
+          ["벤치마크 총수익률", formatPercent(benchmarkSummary.total_return), Number(benchmarkSummary.total_return) < 0 ? "negative-text" : "positive-text"],
+          ["총수익률 차이", formatPercent(outperformance.total_return), Number(outperformance.total_return) < 0 ? "negative-text" : "positive-text"],
+          ["CAGR 차이", formatPercent(outperformance.cagr), Number(outperformance.cagr) < 0 ? "negative-text" : "positive-text"],
+        ]
+      : [["벤치마크", "없음"]]);
 
     const annualBody = document.getElementById("annual-returns-body");
     const annualReturns = result.annual_returns || [];
@@ -438,6 +506,19 @@ async function renderStrategyPage() {
         pointRadius: 0,
         tension: 0.2,
       },
+      ...((result.benchmark_curve || []).length
+        ? [
+            {
+              label: `${benchmark.asset || result.benchmark_asset || "벤치마크"} 비교`,
+              data: (result.benchmark_curve || []).map((point) => ({ x: point.date, y: point.value })),
+              borderColor: "#bf7b38",
+              backgroundColor: "rgba(191, 123, 56, 0.12)",
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.2,
+            },
+          ]
+        : []),
     ]);
   } catch (error) {
     showState("strategy-state", "선택한 결과 파일을 불러오지 못했습니다. JSON 파일 존재 여부와 HTTP 환경에서의 정적 제공 여부를 확인하세요.");

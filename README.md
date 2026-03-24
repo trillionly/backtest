@@ -73,6 +73,18 @@ python scripts/run_backtest.py --all
 4. `web/index.html`에서 검색, 태그, 정렬, 즐겨찾기로 결과를 정리해서 봅니다.
 5. 비교할 전략을 체크한 뒤 비교 페이지로 이동합니다.
 
+## Phase 7: 해석용 분석 지표
+
+상세 페이지에서는 단순 수익률 외에도 아래 해석 지표를 볼 수 있습니다.
+
+1. 기간 분석: 전체 기간, 최근 1년, 최근 3년, 최근 5년 성과
+2. 낙폭 분석: 최대 낙폭, 시작일, 저점일, 회복일, 회복 기간
+3. 롤링 수익률: 1년 롤링 수익률의 최고, 최저, 평균
+4. 위험 요약: 연환산 변동성, 수익/낙폭 비율
+5. 벤치마크 비교: 기준 자산 대비 총수익률과 CAGR 차이
+
+벤치마크는 전략 JSON에 `benchmark_asset`을 넣으면 그 자산을 사용하고, 없으면 기본적으로 첫 번째 자산을 기준 자산으로 사용합니다.
+
 ## Phase 1: Price updates
 
 Phase 1 keeps the CSV files in `data/prices/` updated automatically without changing their filenames or locations.

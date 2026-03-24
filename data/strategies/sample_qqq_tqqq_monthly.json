@@ -3,6 +3,7 @@
   "name": "Sample QQQ TQQQ Monthly",
   "description": "A simple two-asset sample strategy for phase 2 backtest testing.",
   "tags": ["리밸런싱", "레버리지", "적립식", "테스트중"],
+  "benchmark_asset": "QQQ",
   "assets": ["QQQ", "TQQQ"],
   "weights": [0.6, 0.4],
   "start_date": "2020-01-02",
