@@ -143,3 +143,53 @@ For a Pages deployment:
 3. Make sure `data/results/results-index.json` is deployed together with the saved result JSON files
 
 Without `results-index.json`, the results list and compare page cannot discover saved result files in a static hosting environment.
+
+## Phase 4: GitHub Pages deployment
+
+The repository now includes a root landing page at `index.html` so GitHub Pages has a clean default entry page. That landing page links to:
+
+1. `web/index.html`
+2. `web/strategy.html`
+3. `web/compare.html`
+
+The web pages use relative paths so they continue to work when the site is hosted under a repository path such as:
+
+```text
+https://username.github.io/repository-name/
+```
+
+### How to enable GitHub Pages
+
+In your GitHub repository:
+
+1. Open `Settings`
+2. Open `Pages` in the left sidebar
+3. Under `Build and deployment`, choose `Deploy from a branch`
+4. Under `Branch`, select your publishing branch, typically `main`
+5. Under folder, select `/ (root)`
+6. Click `Save`
+
+After GitHub finishes publishing, open the site URL shown on the Pages settings screen.
+
+### Which page to open first
+
+Open the root landing page first:
+
+```text
+https://username.github.io/repository-name/
+```
+
+From there:
+
+1. Open the strategy list at `web/index.html`
+2. Open detail pages from the list
+3. Open `web/compare.html` to compare multiple saved results
+
+### Local file opening limitation
+
+Opening the HTML files directly from disk with `file://` is not reliable because the browser blocks JSON fetch requests in that mode.
+
+Use either:
+
+1. GitHub Pages hosting
+2. A local static server such as `python -m http.server 8000`

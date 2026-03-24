@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Backtest Repository</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="web/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">GitHub Pages Ready</p>
+          <h1>ETF backtests, published as a static reporting site</h1>
+          <p class="hero-text">
+            This repository stores ETF price data, strategy definitions, and saved backtest result files. The reporting UI
+            is fully static and can be published directly with GitHub Pages.
+          </p>
+        </div>
+      </header>
+
+      <main class="content-stack">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Start here</p>
+              <h2>Reporting pages</h2>
+            </div>
+          </div>
+          <div class="result-grid">
+            <article class="result-card">
+              <div>
+                <p class="section-label">List page</p>
+                <h3 class="strategy-name">Strategy results</h3>
+                <p class="strategy-id">Browse all saved backtest result files and open individual detail pages.</p>
+              </div>
+              <div class="card-footer">
+                <p class="period-text">Recommended first page</p>
+                <a class="button-link" href="web/index.html">Open results list</a>
+              </div>
+            </article>
+
+            <article class="result-card">
+              <div>
+                <p class="section-label">Detail page</p>
+                <h3 class="strategy-name">Single strategy view</h3>
+                <p class="strategy-id">Open a result from the list page to view summary cards, chart, annual returns, and trades.</p>
+              </div>
+              <div class="card-footer">
+                <p class="period-text">Accessible from result cards</p>
+                <a class="button-link secondary" href="web/strategy.html">Open detail shell</a>
+              </div>
+            </article>
+
+            <article class="result-card">
+              <div>
+                <p class="section-label">Compare page</p>
+                <h3 class="strategy-name">Multi-result comparison</h3>
+                <p class="strategy-id">Select multiple saved results and compare final value, CAGR, MDD, and equity curves.</p>
+              </div>
+              <div class="card-footer">
+                <p class="period-text">Use after generating result files</p>
+                <a class="button-link secondary" href="web/compare.html">Open compare page</a>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Static hosting notes</p>
+              <h2>How this is structured for GitHub Pages</h2>
+            </div>
+          </div>
+          <div class="metric-grid">
+            <article class="metric-card">
+              <p class="section-label">Paths</p>
+              <h3>Relative URLs</h3>
+              <p>OK</p>
+            </article>
+            <article class="metric-card">
+              <p class="section-label">Data source</p>
+              <h3>Results index</h3>
+              <p>JSON</p>
+            </article>
+            <article class="metric-card">
+              <p class="section-label">Hosting model</p>
+              <h3>Backend</h3>
+              <p>None</p>
+            </article>
+            <article class="metric-card">
+              <p class="section-label">Entry page</p>
+              <h3>Landing</h3>
+              <p>Root</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
