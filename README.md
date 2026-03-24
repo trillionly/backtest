@@ -16,6 +16,8 @@
 - 권장 파일명: `{strategy_id}.json`
 - `strategy_id`는 결과 파일명에도 그대로 쓰이므로 짧고 일관되게 유지하는 편이 좋습니다.
 - 현재 전략 파일은 `id`, `name`, `description`, `assets`, `weights`, `start_date`, `end_date`, `initial_cash`, `monthly_contribution`, `rebalance.type`를 사용합니다.
+- 현금 비중이 필요하면 `assets`에 `CASH`를 넣고 해당 `weights`를 지정하면 됩니다.
+- 밴드 리밸런싱은 `rebalance.type`을 `band`, `rebalance.threshold`를 예: `0.05`처럼 넣으면 됩니다.
 
 ## 백테스트 실행
 

@@ -18,7 +18,8 @@ RESULTS_DIR = ROOT_DIR / "data" / "results"
 CSV_COLUMNS = {"date", "close"}
 DATE_COLUMN_ALIASES = {"date", "날짜"}
 CLOSE_COLUMN_ALIASES = {"close", "종가"}
-SUPPORTED_REBALANCE_TYPES = {"none", "monthly"}
+SUPPORTED_REBALANCE_TYPES = {"none", "monthly", "band"}
+CASH_ASSET = "CASH"
 
 
 @dataclass
@@ -35,6 +36,7 @@ class Strategy:
     initial_cash: float
     monthly_contribution: float
     rebalance_type: str
+    rebalance_threshold: float | None
 
 
 def parse_args() -> argparse.Namespace:
@@ -116,6 +118,14 @@ def load_strategy(strategy_arg: str) -> Strategy:
             f"Unsupported rebalance.type '{rebalance_type}'. Supported types: {', '.join(sorted(SUPPORTED_REBALANCE_TYPES))}"
         )
 
+    rebalance_threshold = None
+    if rebalance_type == "band":
+        if "threshold" not in rebalance:
+            raise ValueError("rebalance.threshold is required for band rebalancing.")
+        rebalance_threshold = float(rebalance["threshold"])
+        if rebalance_threshold <= 0:
+            raise ValueError("rebalance.threshold must be greater than 0.")
+
     start_date = parse_iso_date(data["start_date"])
     end_date = parse_iso_date(data["end_date"])
     if end_date < start_date:
@@ -134,6 +144,7 @@ def load_strategy(strategy_arg: str) -> Strategy:
         initial_cash=float(data["initial_cash"]),
         monthly_contribution=float(data["monthly_contribution"]),
         rebalance_type=rebalance_type,
+        rebalance_threshold=rebalance_threshold,
     )
 
 
@@ -165,6 +176,9 @@ def resolve_strategy_paths(args: argparse.Namespace) -> List[Path]:
 
 
 def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date, float]:
+    if asset == CASH_ASSET:
+        return {}
+
     csv_path = PRICES_DIR / f"{asset.lower()}.csv"
     if not csv_path.exists():
         raise FileNotFoundError(f"Price CSV not found for asset {asset}: {csv_path}")
@@ -238,24 +252,55 @@ def invest_by_weights(
     if cash <= 0:
         return cash
 
-    spent = 0.0
-    assets = list(weights.keys())
-    for index, asset in enumerate(assets):
-        if index == len(assets) - 1:
-            allocation = cash - spent
-        else:
-            allocation = cash * weights[asset]
-            spent += allocation
+    starting_cash = cash
+    for asset, weight in weights.items():
+        allocation = starting_cash * weight
 
         if allocation <= 0:
+            continue
+
+        if asset == CASH_ASSET:
+            cash -= allocation
             continue
 
         price = prices[asset]
         shares = allocation / price
         holdings[asset] += shares
         record_trade(trade_log, trade_date, asset, "buy", shares, price, reason)
+        cash -= allocation
 
-    return 0.0
+    return max(cash, 0.0)
+
+
+def compute_portfolio_weights(
+    holdings: Dict[str, float],
+    prices: Dict[str, float],
+    cash: float,
+    assets: List[str],
+) -> Dict[str, float]:
+    total_value = cash + sum(holdings[asset] * prices[asset] for asset in holdings)
+    if total_value <= 0:
+        return {asset: 0.0 for asset in assets}
+
+    weights = {}
+    for asset in assets:
+        if asset == CASH_ASSET:
+            weights[asset] = cash / total_value
+        else:
+            weights[asset] = (holdings[asset] * prices[asset]) / total_value
+    return weights
+
+
+def should_band_rebalance(
+    holdings: Dict[str, float],
+    prices: Dict[str, float],
+    weights: Dict[str, float],
+    cash: float,
+    assets: List[str],
+    threshold: float,
+) -> bool:
+    current_weights = compute_portfolio_weights(holdings, prices, cash, assets)
+    return any(abs(current_weights[asset] - weights[asset]) > threshold for asset in assets)
 
 
 def rebalance_portfolio(
@@ -267,8 +312,11 @@ def rebalance_portfolio(
     trade_log: List[Dict[str, object]],
 ) -> float:
     total_value = cash + sum(holdings[asset] * prices[asset] for asset in holdings)
-    target_values = {asset: total_value * weights[asset] for asset in holdings}
-    current_values = {asset: holdings[asset] * prices[asset] for asset in holdings}
+    target_values = {}
+    current_values = {}
+    for asset, weight in weights.items():
+        target_values[asset] = total_value * weight
+        current_values[asset] = cash if asset == CASH_ASSET else holdings[asset] * prices[asset]
 
     for asset in holdings:
         difference = current_values[asset] - target_values[asset]
@@ -499,15 +547,19 @@ def build_benchmark_result(
 
 def run_backtest(strategy: Strategy) -> Dict[str, object]:
     weights = dict(zip(strategy.assets, strategy.weights))
+    investable_assets = [asset for asset in strategy.assets if asset != CASH_ASSET]
+    if not investable_assets:
+        raise ValueError("Strategy must include at least one non-cash asset.")
+
     price_data = {
         asset: load_price_series(asset, strategy.start_date, strategy.end_date)
-        for asset in strategy.assets
+        for asset in investable_assets
     }
     trading_dates = get_common_dates(price_data)
     if not trading_dates:
         raise ValueError("No common trading dates found across the selected assets.")
 
-    holdings = {asset: 0.0 for asset in strategy.assets}
+    holdings = {asset: 0.0 for asset in investable_assets}
     cash = strategy.initial_cash
     trade_log: List[Dict[str, object]] = []
     equity_curve: List[Dict[str, object]] = []
@@ -515,7 +567,7 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
     last_contribution_month = None
 
     for index, trading_date in enumerate(trading_dates):
-        prices = {asset: price_data[asset][trading_date] for asset in strategy.assets}
+        prices = {asset: price_data[asset][trading_date] for asset in investable_assets}
         net_flow = 0.0
 
         if index == 0 and cash > 0:
@@ -539,6 +591,16 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         if strategy.rebalance_type == "monthly":
             previous_month_key = None if index == 0 else (trading_dates[index - 1].year, trading_dates[index - 1].month)
             if index == 0 or month_key != previous_month_key:
+                cash = rebalance_portfolio(holdings, prices, weights, cash, trading_date, trade_log)
+        elif strategy.rebalance_type == "band" and index > 0:
+            if should_band_rebalance(
+                holdings,
+                prices,
+                weights,
+                cash,
+                strategy.assets,
+                strategy.rebalance_threshold or 0.0,
+            ):
                 cash = rebalance_portfolio(holdings, prices, weights, cash, trading_date, trade_log)
 
         portfolio_value = compute_equity_value(holdings, prices, cash)
@@ -616,6 +678,7 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         },
         "rebalance": {
             "type": strategy.rebalance_type,
+            "threshold": strategy.rebalance_threshold,
         },
         "benchmark_asset": strategy.benchmark_asset,
         "summary": {

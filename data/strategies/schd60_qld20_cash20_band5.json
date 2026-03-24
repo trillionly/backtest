@@ -1,0 +1,17 @@
+{
+  "id": "schd60_qld20_cash20_band5",
+  "name": "SCHD 60 QLD 20 CASH 20 Band 5",
+  "description": "SCHD 60%, QLD 20%, 현금 20% 비중을 유지하되 목표 비중에서 5%p 이상 벗어나면 리밸런싱하는 전략",
+  "tags": ["장투", "리밸런싱", "방어형"],
+  "benchmark_asset": "SCHD",
+  "assets": ["SCHD", "QLD", "CASH"],
+  "weights": [0.6, 0.2, 0.2],
+  "start_date": "2011-10-21",
+  "end_date": "2025-12-31",
+  "initial_cash": 10000,
+  "monthly_contribution": 0,
+  "rebalance": {
+    "type": "band",
+    "threshold": 0.05
+  }
+}
