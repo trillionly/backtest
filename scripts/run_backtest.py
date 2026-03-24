@@ -16,6 +16,8 @@ PRICES_DIR = ROOT_DIR / "data" / "prices"
 STRATEGIES_DIR = ROOT_DIR / "data" / "strategies"
 RESULTS_DIR = ROOT_DIR / "data" / "results"
 CSV_COLUMNS = {"date", "close"}
+DATE_COLUMN_ALIASES = {"date", "날짜"}
+CLOSE_COLUMN_ALIASES = {"close", "종가"}
 SUPPORTED_REBALANCE_TYPES = {"none", "monthly"}
 
 
@@ -60,6 +62,10 @@ def round_metric(value: float) -> float:
 
 def normalize_asset_name(asset: str) -> str:
     return asset.strip().upper()
+
+
+def normalize_column_name(value: str) -> str:
+    return value.replace("\ufeff", "").strip().lower()
 
 
 def load_strategy(strategy_arg: str) -> Strategy:
@@ -168,12 +174,11 @@ def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date
         if reader.fieldnames is None:
             raise ValueError(f"{csv_path} is empty or missing a header row.")
 
-        normalized_columns = {name.lower(): name for name in reader.fieldnames}
-        if set(normalized_columns.keys()) & CSV_COLUMNS != CSV_COLUMNS:
+        normalized_columns = {normalize_column_name(name): name for name in reader.fieldnames}
+        date_column = next((normalized_columns[key] for key in DATE_COLUMN_ALIASES if key in normalized_columns), None)
+        close_column = next((normalized_columns[key] for key in CLOSE_COLUMN_ALIASES if key in normalized_columns), None)
+        if date_column is None or close_column is None:
             raise ValueError(f"{csv_path} must contain Date and Close columns.")
-
-        date_column = normalized_columns["date"]
-        close_column = normalized_columns["close"]
 
         series: Dict[date, float] = {}
         for row in reader:

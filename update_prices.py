@@ -18,6 +18,8 @@ PRICE_FILES: Dict[str, str] = {
 
 PRICES_DIR = Path("data/prices")
 CSV_COLUMNS = ["Date", "Close"]
+DATE_COLUMN_ALIASES = {"date", "날짜"}
+CLOSE_COLUMN_ALIASES = {"close", "종가"}
 
 
 def normalize_column_name(value: str) -> str:
@@ -39,11 +41,10 @@ def load_existing_rows(csv_path: Path) -> Tuple[List[Dict[str, str]], date | Non
             raise ValueError(f"{csv_path} is empty or missing a header row.")
 
         normalized_columns = {normalize_column_name(name): name for name in reader.fieldnames}
-        if "date" not in normalized_columns or "close" not in normalized_columns:
+        date_column = next((normalized_columns[key] for key in DATE_COLUMN_ALIASES if key in normalized_columns), None)
+        close_column = next((normalized_columns[key] for key in CLOSE_COLUMN_ALIASES if key in normalized_columns), None)
+        if date_column is None or close_column is None:
             raise ValueError(f"{csv_path} must contain Date and Close columns.")
-
-        date_column = normalized_columns["date"]
-        close_column = normalized_columns["close"]
 
         rows_by_date: Dict[str, Dict[str, str]] = {}
         for raw_row in reader:
