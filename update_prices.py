@@ -20,6 +20,10 @@ PRICES_DIR = Path("data/prices")
 CSV_COLUMNS = ["Date", "Close"]
 
 
+def normalize_column_name(value: str) -> str:
+    return value.replace("\ufeff", "").strip().lower()
+
+
 def parse_iso_date(value: str) -> date:
     return datetime.strptime(value.strip(), "%Y-%m-%d").date()
 
@@ -34,7 +38,7 @@ def load_existing_rows(csv_path: Path) -> Tuple[List[Dict[str, str]], date | Non
         if reader.fieldnames is None:
             raise ValueError(f"{csv_path} is empty or missing a header row.")
 
-        normalized_columns = {name.lower(): name for name in reader.fieldnames}
+        normalized_columns = {normalize_column_name(name): name for name in reader.fieldnames}
         if "date" not in normalized_columns or "close" not in normalized_columns:
             raise ValueError(f"{csv_path} must contain Date and Close columns.")
 
