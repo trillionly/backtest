@@ -20,6 +20,8 @@ DATE_COLUMN_ALIASES = {"date", "날짜"}
 CLOSE_COLUMN_ALIASES = {"close", "종가"}
 SUPPORTED_REBALANCE_TYPES = {"none", "monthly", "band"}
 CASH_ASSET = "CASH"
+SPIKE_RETURN_THRESHOLD = 1.0
+REVERSAL_DIFF_THRESHOLD = 0.12
 
 
 @dataclass
@@ -60,6 +62,40 @@ def parse_iso_date(value: str) -> date:
 
 def is_trading_day(value: date) -> bool:
     return value.weekday() < 5
+
+
+def is_reversible_spike(
+    previous_close: float | None,
+    current_close: float,
+    next_close: float | None,
+) -> bool:
+    if previous_close is None or next_close is None or previous_close <= 0 or current_close <= 0 or next_close <= 0:
+        return False
+
+    jump = abs((current_close / previous_close) - 1.0)
+    if jump < SPIKE_RETURN_THRESHOLD:
+        return False
+
+    reversal_gap = abs((next_close / previous_close) - 1.0)
+    return reversal_gap <= REVERSAL_DIFF_THRESHOLD
+
+
+def clean_price_points(points: List[Dict[str, float | date]]) -> List[Dict[str, float | date]]:
+    cleaned = []
+    for index, point in enumerate(points):
+        point_date = point["Date"]
+        point_close = float(point["Close"])
+        if not is_trading_day(point_date):
+            continue
+
+        previous_close = float(points[index - 1]["Close"]) if index > 0 else None
+        next_close = float(points[index + 1]["Close"]) if index < len(points) - 1 else None
+        if is_reversible_spike(previous_close, point_close, next_close):
+            continue
+
+        cleaned.append(point)
+
+    return cleaned
 
 
 def round_metric(value: float) -> float:
@@ -198,7 +234,7 @@ def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date
         if date_column is None or close_column is None:
             raise ValueError(f"{csv_path} must contain Date and Close columns.")
 
-        series: Dict[date, float] = {}
+        raw_points: List[Dict[str, float | date]] = []
         for row in reader:
             row_date = parse_iso_date((row.get(date_column) or "").strip())
             if not is_trading_day(row_date):
@@ -207,7 +243,12 @@ def load_price_series(asset: str, start_date: date, end_date: date) -> Dict[date
                 continue
 
             close_value = float((row.get(close_column) or "").strip())
-            series[row_date] = close_value
+            raw_points.append({"Date": row_date, "Close": close_value})
+
+    cleaned_points = clean_price_points(raw_points)
+    series: Dict[date, float] = {}
+    for point in cleaned_points:
+        series[point["Date"]] = float(point["Close"])
 
     if not series:
         raise ValueError(f"No price data found for {asset} between {start_date} and {end_date}.")

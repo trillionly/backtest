@@ -20,6 +20,8 @@ PRICES_DIR = Path("data/prices")
 CSV_COLUMNS = ["Date", "Close"]
 DATE_COLUMN_ALIASES = {"date", "날짜"}
 CLOSE_COLUMN_ALIASES = {"close", "종가"}
+SPIKE_RETURN_THRESHOLD = 1.0
+REVERSAL_DIFF_THRESHOLD = 0.12
 
 
 def normalize_column_name(value: str) -> str:
@@ -32,6 +34,48 @@ def parse_iso_date(value: str) -> date:
 
 def is_trading_day(value: date) -> bool:
     return value.weekday() < 5
+
+
+def is_reversible_spike(
+    previous_close: float | None,
+    current_close: float,
+    next_close: float | None,
+) -> bool:
+    if previous_close is None or next_close is None or previous_close <= 0 or current_close <= 0 or next_close <= 0:
+        return False
+
+    jump = abs((current_close / previous_close) - 1.0)
+    if jump < SPIKE_RETURN_THRESHOLD:
+        return False
+
+    reversal_gap = abs((next_close / previous_close) - 1.0)
+    return reversal_gap <= REVERSAL_DIFF_THRESHOLD
+
+
+def clean_price_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    cleaned_rows = []
+    parsed_rows = [
+        {
+            "Date": row["Date"],
+            "Close": row["Close"],
+            "_close_value": float(row["Close"]),
+        }
+        for row in rows
+    ]
+
+    for index, row in enumerate(parsed_rows):
+        row_date = parse_iso_date(row["Date"])
+        if not is_trading_day(row_date):
+            continue
+
+        previous_close = parsed_rows[index - 1]["_close_value"] if index > 0 else None
+        next_close = parsed_rows[index + 1]["_close_value"] if index < len(parsed_rows) - 1 else None
+        if is_reversible_spike(previous_close, row["_close_value"], next_close):
+            continue
+
+        cleaned_rows.append({"Date": row["Date"], "Close": row["Close"]})
+
+    return cleaned_rows
 
 
 def format_close(value: float) -> str:
@@ -69,6 +113,7 @@ def load_existing_rows(csv_path: Path) -> Tuple[List[Dict[str, str]], date | Non
             }
 
     rows = [rows_by_date[key] for key in sorted(rows_by_date)]
+    rows = clean_price_rows(rows)
     last_existing_date = parse_iso_date(rows[-1]["Date"]) if rows else None
     return rows, last_existing_date
 
@@ -147,6 +192,7 @@ def update_price_file(csv_path: Path, ticker: str) -> None:
         rows_by_date[row["Date"]] = row
 
     merged_rows = [rows_by_date[key] for key in sorted(rows_by_date)]
+    merged_rows = clean_price_rows(merged_rows)
     appended_count = len(new_rows)
     write_rows(csv_path, merged_rows)
 

@@ -87,6 +87,13 @@ python scripts/run_backtest.py --all
 
 벤치마크는 전략 JSON에 `benchmark_asset`을 넣으면 그 자산을 사용하고, 없으면 기본적으로 첫 번째 자산을 기준 자산으로 사용합니다.
 
+원본 가격 데이터에는 드물게 주말 행이나 비정상 스파이크가 섞일 수 있어서, 현재는 다음 규칙으로 보정합니다.
+
+1. 주말 행은 제외
+2. 전일 대비 과도하게 튄 뒤 다음 거래일에 거의 원상복귀하는 단발성 스파이크는 제외
+
+반대로, 거래일에 발생한 실제 큰 변동은 그대로 유지합니다.
+
 ## Phase 1: Price updates
 
 Phase 1 keeps the CSV files in `data/prices/` updated automatically without changing their filenames or locations.
