@@ -30,6 +30,7 @@ class Strategy:
     name: str
     description: str
     tags: List[str]
+    strategy_kind: str
     benchmark_asset: str
     assets: List[str]
     weights: List[float]
@@ -39,6 +40,9 @@ class Strategy:
     monthly_contribution: float
     rebalance_type: str
     rebalance_threshold: float | None
+    trade_asset: str | None = None
+    tranche_count: int | None = None
+    stop_days: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -120,21 +124,70 @@ def load_strategy(strategy_arg: str) -> Strategy:
     with strategy_path.open("r", encoding="utf-8") as handle:
         data = json.load(handle)
 
-    required_fields = [
-        "id",
-        "name",
-        "description",
-        "assets",
-        "weights",
-        "start_date",
-        "end_date",
-        "initial_cash",
-        "monthly_contribution",
-        "rebalance",
-    ]
+    strategy_kind = str(data.get("strategy_kind", "allocation")).strip().lower()
+
+    if strategy_kind == "single_asset_tranche":
+        required_fields = [
+            "id",
+            "name",
+            "description",
+            "asset",
+            "start_date",
+            "end_date",
+            "initial_cash",
+            "tranche_count",
+            "stop_days",
+        ]
+    else:
+        required_fields = [
+            "id",
+            "name",
+            "description",
+            "assets",
+            "weights",
+            "start_date",
+            "end_date",
+            "initial_cash",
+            "monthly_contribution",
+            "rebalance",
+        ]
     missing_fields = [field for field in required_fields if field not in data]
     if missing_fields:
         raise ValueError(f"Strategy file is missing required fields: {', '.join(missing_fields)}")
+
+    start_date = parse_iso_date(data["start_date"])
+    end_date = parse_iso_date(data["end_date"])
+    if end_date < start_date:
+        raise ValueError("end_date must be on or after start_date.")
+
+    if strategy_kind == "single_asset_tranche":
+        trade_asset = normalize_asset_name(data["asset"])
+        tranche_count = int(data["tranche_count"])
+        stop_days = int(data["stop_days"])
+        if tranche_count <= 0:
+            raise ValueError("tranche_count must be greater than 0.")
+        if stop_days <= 0:
+            raise ValueError("stop_days must be greater than 0.")
+
+        return Strategy(
+            id=str(data["id"]).strip(),
+            name=str(data["name"]).strip(),
+            description=str(data["description"]).strip(),
+            tags=[str(tag).strip() for tag in data.get("tags", []) if str(tag).strip()],
+            strategy_kind=strategy_kind,
+            benchmark_asset=normalize_asset_name(data.get("benchmark_asset", trade_asset)),
+            assets=[trade_asset],
+            weights=[1.0],
+            start_date=start_date,
+            end_date=end_date,
+            initial_cash=float(data["initial_cash"]),
+            monthly_contribution=0.0,
+            rebalance_type="none",
+            rebalance_threshold=None,
+            trade_asset=trade_asset,
+            tranche_count=tranche_count,
+            stop_days=stop_days,
+        )
 
     assets = [normalize_asset_name(asset) for asset in data["assets"]]
     weights = [float(weight) for weight in data["weights"]]
@@ -166,16 +219,12 @@ def load_strategy(strategy_arg: str) -> Strategy:
         if rebalance_threshold <= 0:
             raise ValueError("rebalance.threshold must be greater than 0.")
 
-    start_date = parse_iso_date(data["start_date"])
-    end_date = parse_iso_date(data["end_date"])
-    if end_date < start_date:
-        raise ValueError("end_date must be on or after start_date.")
-
     return Strategy(
         id=str(data["id"]).strip(),
         name=str(data["name"]).strip(),
         description=str(data["description"]).strip(),
         tags=[str(tag).strip() for tag in data.get("tags", []) if str(tag).strip()],
+        strategy_kind=strategy_kind,
         benchmark_asset=normalize_asset_name(data.get("benchmark_asset", assets[0])),
         assets=assets,
         weights=weights,
@@ -592,7 +641,217 @@ def build_benchmark_result(
     }
 
 
+def build_result_payload(
+    strategy: Strategy,
+    trading_dates: List[date],
+    equity_curve: List[Dict[str, object]],
+    daily_returns: List[Dict[str, object]],
+    trade_log: List[Dict[str, object]],
+    assets: List[str],
+    weights: List[float],
+    benchmark: Dict[str, object] | None,
+) -> Dict[str, object]:
+    cumulative_return = 1.0
+    annual_return_factors: Dict[int, float] = {}
+    drawdown_peak = 1.0
+    max_drawdown = 0.0
+
+    for entry in daily_returns:
+        cumulative_return *= 1.0 + entry["return"]
+        annual_return_factors.setdefault(entry["year"], 1.0)
+        annual_return_factors[entry["year"]] *= 1.0 + entry["return"]
+        drawdown_peak = max(drawdown_peak, cumulative_return)
+        drawdown = (cumulative_return / drawdown_peak) - 1.0
+        max_drawdown = min(max_drawdown, drawdown)
+
+    total_return = cumulative_return - 1.0
+    elapsed_days = max((trading_dates[-1] - trading_dates[0]).days, 1)
+    elapsed_years = elapsed_days / 365.25
+    cagr = 0.0 if elapsed_years <= 0 else (cumulative_return ** (1 / elapsed_years)) - 1.0
+
+    annual_returns = [
+        {
+            "year": year,
+            "return": round_metric(factor - 1.0),
+        }
+        for year, factor in sorted(annual_return_factors.items())
+    ]
+
+    annualized_volatility = compute_annualized_volatility(daily_returns)
+    drawdown_details = compute_drawdown_details(equity_curve)
+    period_analysis = build_period_analysis(equity_curve)
+    rolling_returns = build_rolling_return_analysis(equity_curve)
+    calmar_like = 0.0 if abs(max_drawdown) <= 1e-12 else cagr / abs(max_drawdown)
+
+    return {
+        "strategy_id": strategy.id,
+        "strategy_name": strategy.name,
+        "description": strategy.description,
+        "tags": strategy.tags,
+        "assets": assets,
+        "weights": weights,
+        "period": {
+            "start_date": trading_dates[0].isoformat(),
+            "end_date": trading_dates[-1].isoformat(),
+        },
+        "rebalance": {
+            "type": strategy.rebalance_type,
+            "threshold": strategy.rebalance_threshold,
+        },
+        "benchmark_asset": strategy.benchmark_asset,
+        "summary": {
+            "final_value": round_metric(equity_curve[-1]["value"]),
+            "total_return": round_metric(total_return),
+            "cagr": round_metric(cagr),
+            "mdd": round_metric(max_drawdown),
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "analysis": {
+            "periods": period_analysis,
+            "drawdown": drawdown_details,
+            "rolling_returns": rolling_returns,
+            "risk": {
+                "annualized_volatility": round_metric(annualized_volatility),
+                "return_to_drawdown": round_metric(calmar_like),
+            },
+            "benchmark": {
+                "asset": benchmark["asset"] if benchmark else None,
+                "summary": benchmark["summary"] if benchmark else None,
+                "outperformance": {
+                    "final_value": round_metric(equity_curve[-1]["value"] - benchmark["summary"]["final_value"]) if benchmark else None,
+                    "total_return": round_metric(total_return - benchmark["summary"]["total_return"]) if benchmark else None,
+                    "cagr": round_metric(cagr - benchmark["summary"]["cagr"]) if benchmark else None,
+                } if benchmark else None,
+            },
+        },
+        "equity_curve": equity_curve,
+        "annual_returns": annual_returns,
+        "trade_log": trade_log,
+        "benchmark_curve": benchmark["equity_curve"] if benchmark else [],
+    }
+
+
+def run_single_asset_tranche_backtest(strategy: Strategy) -> Dict[str, object]:
+    if strategy.trade_asset is None or strategy.tranche_count is None or strategy.stop_days is None:
+        raise ValueError("single_asset_tranche strategy requires asset, tranche_count, and stop_days.")
+
+    price_data = load_price_series(strategy.trade_asset, strategy.start_date, strategy.end_date)
+    trading_dates = sorted(price_data)
+    if not trading_dates:
+        raise ValueError(f"No price data found for {strategy.trade_asset}.")
+
+    tranche_size = strategy.initial_cash / strategy.tranche_count
+    cash = strategy.initial_cash
+    open_tranches: List[Dict[str, object]] = []
+    trade_log: List[Dict[str, object]] = []
+    equity_curve: List[Dict[str, object]] = []
+    daily_returns: List[Dict[str, object]] = []
+
+    for index, trading_date in enumerate(trading_dates):
+        current_close = price_data[trading_date]
+        previous_close = price_data[trading_dates[index - 1]] if index > 0 else None
+
+        remaining_tranches = []
+        for tranche in open_tranches:
+            held_days = index - int(tranche["entry_index"])
+            if held_days >= strategy.stop_days and current_close < float(tranche["entry_price"]):
+                sell_value = float(tranche["shares"]) * current_close
+                cash += sell_value
+                record_trade(
+                    trade_log,
+                    trading_date,
+                    strategy.trade_asset,
+                    "sell",
+                    float(tranche["shares"]),
+                    current_close,
+                    "stop_loss_30d",
+                )
+            else:
+                remaining_tranches.append(tranche)
+        open_tranches = remaining_tranches
+
+        if previous_close is not None:
+            if current_close < previous_close and cash >= tranche_size:
+                shares = tranche_size / current_close
+                cash -= tranche_size
+                open_tranches.append(
+                    {
+                        "entry_date": trading_date.isoformat(),
+                        "entry_index": index,
+                        "entry_price": current_close,
+                        "shares": shares,
+                    }
+                )
+                record_trade(
+                    trade_log,
+                    trading_date,
+                    strategy.trade_asset,
+                    "buy",
+                    shares,
+                    current_close,
+                    "down_day_buy",
+                )
+            elif current_close > previous_close and open_tranches:
+                tranche = open_tranches.pop(0)
+                sell_value = float(tranche["shares"]) * current_close
+                cash += sell_value
+                record_trade(
+                    trade_log,
+                    trading_date,
+                    strategy.trade_asset,
+                    "sell",
+                    float(tranche["shares"]),
+                    current_close,
+                    "up_day_sell",
+                )
+
+        invested_value = sum(float(tranche["shares"]) * current_close for tranche in open_tranches)
+        portfolio_value = cash + invested_value
+        equity_curve.append(
+            {
+                "date": trading_date.isoformat(),
+                "value": round_metric(portfolio_value),
+            }
+        )
+
+        if index == 0:
+            daily_return = 0.0
+        else:
+            previous_value = float(equity_curve[index - 1]["value"])
+            daily_return = 0.0 if previous_value <= 0 else (portfolio_value / previous_value) - 1.0
+
+        daily_returns.append(
+            {
+                "date": trading_date.isoformat(),
+                "year": trading_date.year,
+                "return": daily_return,
+            }
+        )
+
+    benchmark = build_benchmark_result(
+        strategy.benchmark_asset,
+        trading_dates[0],
+        trading_dates[-1],
+        strategy.initial_cash,
+        0.0,
+    )
+
+    return build_result_payload(
+        strategy,
+        trading_dates,
+        equity_curve,
+        daily_returns,
+        trade_log,
+        [strategy.trade_asset, CASH_ASSET],
+        [round_metric((strategy.initial_cash - cash) / strategy.initial_cash), round_metric(cash / strategy.initial_cash)] if strategy.initial_cash > 0 else [0.0, 0.0],
+        benchmark,
+    )
+
+
 def run_backtest(strategy: Strategy) -> Dict[str, object]:
+    if strategy.strategy_kind == "single_asset_tranche":
+        return run_single_asset_tranche_backtest(strategy)
+
     weights = dict(zip(strategy.assets, strategy.weights))
     investable_assets = [asset for asset in strategy.assets if asset != CASH_ASSET]
     if not investable_assets:
@@ -673,36 +932,6 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         )
         last_contribution_month = month_key
 
-    cumulative_return = 1.0
-    annual_return_factors: Dict[int, float] = {}
-    drawdown_peak = 1.0
-    max_drawdown = 0.0
-
-    for entry in daily_returns:
-        cumulative_return *= 1.0 + entry["return"]
-        annual_return_factors.setdefault(entry["year"], 1.0)
-        annual_return_factors[entry["year"]] *= 1.0 + entry["return"]
-        drawdown_peak = max(drawdown_peak, cumulative_return)
-        drawdown = (cumulative_return / drawdown_peak) - 1.0
-        max_drawdown = min(max_drawdown, drawdown)
-
-    total_return = cumulative_return - 1.0
-    elapsed_days = max((trading_dates[-1] - trading_dates[0]).days, 1)
-    elapsed_years = elapsed_days / 365.25
-    cagr = 0.0 if elapsed_years <= 0 else (cumulative_return ** (1 / elapsed_years)) - 1.0
-
-    annual_returns = [
-        {
-            "year": year,
-            "return": round_metric(factor - 1.0),
-        }
-        for year, factor in sorted(annual_return_factors.items())
-    ]
-
-    annualized_volatility = compute_annualized_volatility(daily_returns)
-    drawdown_details = compute_drawdown_details(equity_curve)
-    period_analysis = build_period_analysis(equity_curve)
-    rolling_returns = build_rolling_return_analysis(equity_curve)
     benchmark = build_benchmark_result(
         strategy.benchmark_asset,
         trading_dates[0],
@@ -710,54 +939,16 @@ def run_backtest(strategy: Strategy) -> Dict[str, object]:
         strategy.initial_cash,
         strategy.monthly_contribution,
     )
-    calmar_like = 0.0 if abs(max_drawdown) <= 1e-12 else cagr / abs(max_drawdown)
-
-    return {
-        "strategy_id": strategy.id,
-        "strategy_name": strategy.name,
-        "description": strategy.description,
-        "tags": strategy.tags,
-        "assets": strategy.assets,
-        "weights": strategy.weights,
-        "period": {
-            "start_date": trading_dates[0].isoformat(),
-            "end_date": trading_dates[-1].isoformat(),
-        },
-        "rebalance": {
-            "type": strategy.rebalance_type,
-            "threshold": strategy.rebalance_threshold,
-        },
-        "benchmark_asset": strategy.benchmark_asset,
-        "summary": {
-            "final_value": round_metric(equity_curve[-1]["value"]),
-            "total_return": round_metric(total_return),
-            "cagr": round_metric(cagr),
-            "mdd": round_metric(max_drawdown),
-        },
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "analysis": {
-            "periods": period_analysis,
-            "drawdown": drawdown_details,
-            "rolling_returns": rolling_returns,
-            "risk": {
-                "annualized_volatility": round_metric(annualized_volatility),
-                "return_to_drawdown": round_metric(calmar_like),
-            },
-            "benchmark": {
-                "asset": benchmark["asset"] if benchmark else None,
-                "summary": benchmark["summary"] if benchmark else None,
-                "outperformance": {
-                    "final_value": round_metric(equity_curve[-1]["value"] - benchmark["summary"]["final_value"]) if benchmark else None,
-                    "total_return": round_metric(total_return - benchmark["summary"]["total_return"]) if benchmark else None,
-                    "cagr": round_metric(cagr - benchmark["summary"]["cagr"]) if benchmark else None,
-                } if benchmark else None,
-            },
-        },
-        "equity_curve": equity_curve,
-        "annual_returns": annual_returns,
-        "trade_log": trade_log,
-        "benchmark_curve": benchmark["equity_curve"] if benchmark else [],
-    }
+    return build_result_payload(
+        strategy,
+        trading_dates,
+        equity_curve,
+        daily_returns,
+        trade_log,
+        strategy.assets,
+        strategy.weights,
+        benchmark,
+    )
 
 
 def build_results_index() -> Dict[str, object]:

@@ -1,0 +1,14 @@
+{
+  "id": "soxl_ddeolsa_6split_30d",
+  "name": "SOXL 떨사오팔 6분할 30일손절",
+  "description": "SOXL 단일종목 상장이후 전략. 시드 60000을 6등분하고, 전일 대비 종가 하락일에 1분할 매수, 상승일에 1분할 매도, 30거래일 경과 후 손실 상태인 분할은 손절",
+  "strategy_kind": "single_asset_tranche",
+  "tags": ["단일종목", "SOXL", "분할매수", "분할매도", "테스트중"],
+  "benchmark_asset": "SOXL",
+  "asset": "SOXL",
+  "start_date": "2010-03-12",
+  "end_date": "2025-12-31",
+  "initial_cash": 60000,
+  "tranche_count": 6,
+  "stop_days": 30
+}
