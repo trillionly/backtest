@@ -1,0 +1,17 @@
+{
+  "id": "schd70_qld10_cash20_band5",
+  "name": "SCHD 70 QLD 10 CASH 20 Band 5",
+  "description": "기준 전략보다 QLD 비중을 낮춰 변동성을 줄인 수비형 전략",
+  "tags": ["장투", "리밸런싱", "방어형"],
+  "benchmark_asset": "SCHD",
+  "assets": ["SCHD", "QLD", "CASH"],
+  "weights": [0.7, 0.1, 0.2],
+  "start_date": "2011-10-21",
+  "end_date": "2025-12-31",
+  "initial_cash": 10000,
+  "monthly_contribution": 0,
+  "rebalance": {
+    "type": "band",
+    "threshold": 0.05
+  }
+}

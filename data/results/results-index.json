@@ -1,6 +1,29 @@
 {
-  "generated_at": "2026-03-31T07:47:09.549604+00:00",
+  "generated_at": "2026-03-31T08:00:50.500206+00:00",
   "results": [
+    {
+      "file": "schd50_qld30_cash20_band5_2011-10-21_2025-12-31.json",
+      "strategy_id": "schd50_qld30_cash20_band5",
+      "strategy_name": "SCHD 50 QLD 30 CASH 20 Band 5",
+      "description": "\uae30\uc900 \uc804\ub7b5\ubcf4\ub2e4 QLD \ube44\uc911\uc744 \ub192\uc5ec \uae30\ub300\uc218\uc775\uacfc \ubcc0\ub3d9\uc131\uc744 \ud568\uaed8 \ud0a4\uc6b4 \uacf5\uaca9\ud615 \uc804\ub7b5",
+      "tags": [
+        "\uc7a5\ud22c",
+        "\ub9ac\ubc38\ub7f0\uc2f1",
+        "\uacf5\uaca9\ud615",
+        "\ub808\ubc84\ub9ac\uc9c0"
+      ],
+      "created_at": "2026-03-31T08:00:50.410561+00:00",
+      "period": {
+        "start_date": "2011-10-21",
+        "end_date": "2025-12-31"
+      },
+      "summary": {
+        "final_value": 59334.530028,
+        "total_return": 6.416816,
+        "cagr": 0.151599,
+        "mdd": -0.334537
+      }
+    },
     {
       "file": "schd60_qld20_cash20_band5_2011-10-21_2025-12-31.json",
       "strategy_id": "schd60_qld20_cash20_band5",
@@ -11,7 +34,7 @@
         "\ub9ac\ubc38\ub7f0\uc2f1",
         "\ubc29\uc5b4\ud615"
       ],
-      "created_at": "2026-03-31T07:47:09.492462+00:00",
+      "created_at": "2026-03-31T08:00:50.068430+00:00",
       "period": {
         "start_date": "2011-10-21",
         "end_date": "2025-12-31"
@@ -21,6 +44,73 @@
         "total_return": 4.183073,
         "cagr": 0.122892,
         "mdd": -0.313652
+      }
+    },
+    {
+      "file": "schd60_qld40_band5_2011-10-21_2025-12-31.json",
+      "strategy_id": "schd60_qld40_band5",
+      "strategy_name": "SCHD 60 QLD 40 Band 5",
+      "description": "SCHD 60%, QLD 40% \ube44\uc911\uc744 \uc720\uc9c0\ud558\ub418 \ubaa9\ud45c \ube44\uc911\uc5d0\uc11c 5%p \uc774\uc0c1 \ubc97\uc5b4\ub098\uba74 \ub9ac\ubc38\ub7f0\uc2f1\ud558\ub294 \uacf5\uaca9\ud615 \uc804\ub7b5",
+      "tags": [
+        "\uc7a5\ud22c",
+        "\ub9ac\ubc38\ub7f0\uc2f1",
+        "\uacf5\uaca9\ud615",
+        "\ub808\ubc84\ub9ac\uc9c0"
+      ],
+      "created_at": "2026-03-31T07:50:35.986741+00:00",
+      "period": {
+        "start_date": "2011-10-21",
+        "end_date": "2025-12-31"
+      },
+      "summary": {
+        "final_value": 116374.271653,
+        "total_return": 10.637427,
+        "cagr": 0.188729,
+        "mdd": -0.406197
+      }
+    },
+    {
+      "file": "schd70_qld10_cash20_band5_2011-10-21_2025-12-31.json",
+      "strategy_id": "schd70_qld10_cash20_band5",
+      "strategy_name": "SCHD 70 QLD 10 CASH 20 Band 5",
+      "description": "\uae30\uc900 \uc804\ub7b5\ubcf4\ub2e4 QLD \ube44\uc911\uc744 \ub0ae\ucdb0 \ubcc0\ub3d9\uc131\uc744 \uc904\uc778 \uc218\ube44\ud615 \uc804\ub7b5",
+      "tags": [
+        "\uc7a5\ud22c",
+        "\ub9ac\ubc38\ub7f0\uc2f1",
+        "\ubc29\uc5b4\ud615"
+      ],
+      "created_at": "2026-03-31T08:00:50.233869+00:00",
+      "period": {
+        "start_date": "2011-10-21",
+        "end_date": "2025-12-31"
+      },
+      "summary": {
+        "final_value": 30120.140848,
+        "total_return": 2.765018,
+        "cagr": 0.097891,
+        "mdd": -0.289036
+      }
+    },
+    {
+      "file": "schd80_cash20_band5_2011-10-21_2025-12-31.json",
+      "strategy_id": "schd80_cash20_band5",
+      "strategy_name": "SCHD 80 CASH 20 Band 5",
+      "description": "SCHD 80%, \ud604\uae08 20% \ube44\uc911\uc744 \uc720\uc9c0\ud558\ub418 \ubaa9\ud45c \ube44\uc911\uc5d0\uc11c 5%p \uc774\uc0c1 \ubc97\uc5b4\ub098\uba74 \ub9ac\ubc38\ub7f0\uc2f1\ud558\ub294 \ubc29\uc5b4\ud615 \uc804\ub7b5",
+      "tags": [
+        "\uc7a5\ud22c",
+        "\ub9ac\ubc38\ub7f0\uc2f1",
+        "\ubc29\uc5b4\ud615"
+      ],
+      "created_at": "2026-03-31T07:50:35.818786+00:00",
+      "period": {
+        "start_date": "2011-10-21",
+        "end_date": "2025-12-31"
+      },
+      "summary": {
+        "final_value": 21061.684188,
+        "total_return": 1.632711,
+        "cagr": 0.070569,
+        "mdd": -0.273785
       }
     }
   ]
